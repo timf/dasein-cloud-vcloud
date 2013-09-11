@@ -823,10 +823,9 @@ public class TemplateSupport implements MachineImageSupport {
                     Node child = children.item(j);
                     if( child.getNodeName().equalsIgnoreCase(nsString + "StorageLeaseExpiration") && child.hasChildNodes() ) {
                     	String expiryDateString = child.getFirstChild().getNodeValue().trim();
-                    	Date expiryDate = vCloud.parseIsoDate(expiryDateString);
-                    	if (expiryDate != null){
+                    	if (expiryDateString != null){
                     		Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                    		if (cal.getTimeInMillis() > expiryDate.getTime()){
+                    		if (cal.getTimeInMillis() > vCloud.parseIsoDate(expiryDateString)){
                     			if (logger.isTraceEnabled()){
                     				logger.trace("vAppTemplate " + image.getName() + " has an expired storage lease.");
                     			}

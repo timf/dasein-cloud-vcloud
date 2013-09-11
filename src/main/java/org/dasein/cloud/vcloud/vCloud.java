@@ -29,11 +29,8 @@ import org.dasein.cloud.vcloud.network.vCloudNetworkServices;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.Calendar;
 import java.util.Properties;
-import java.util.TimeZone;
 
 /**
  * Bootstrapping class for interacting with vCloud Director through Dasein Cloud. This implementation is a complete
@@ -45,8 +42,7 @@ import java.util.TimeZone;
  */
 public class vCloud extends AbstractCloud {
     static private final Logger logger = getLogger(vCloud.class);
-    public final static String ISO8601_PATTERN       = "yyy-MM-dd'T'HH:mm:ss.SSSZ";
-    
+
     static private @Nonnull String getLastItem(@Nonnull String name) {
         int idx = name.lastIndexOf('.');
 
@@ -232,59 +228,6 @@ public class vCloud extends AbstractCloud {
         return (value != null && value.equalsIgnoreCase("true"));
     }
 
-    public @Nonnegative long parseTime(@Nullable String time) throws CloudException {
-        if( time == null || time.length() < 1 ) {
-            return 0L;
-        }
-        //2013-02-02T22:16:45.917-05:00
-        if( time.endsWith("-05:00") || time.endsWith("+00:00") ) {
-            String tz;
-
-            if( time.endsWith("-05:00") ) {
-                int idx = time.lastIndexOf('-');
-
-                time = time.substring(0,idx);
-                tz = "America/New York";
-            }
-            else {
-                int idx = time.lastIndexOf('-');
-
-                time = time.substring(0,idx);
-                tz = "GMT";
-            }
-            SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-
-            fmt.setTimeZone(TimeZone.getTimeZone(tz));
-            if( time.length() > 0 ) {
-                try {
-                    return fmt.parse(time).getTime();
-                }
-                catch( ParseException e ) {
-                    throw new CloudException("Could not parse date: " + time);
-                }
-            }
-        }
-        else {
-            SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-
-            if( time.length() > 0 ) {
-                try {
-                    return fmt.parse(time).getTime();
-                }
-                catch( ParseException e ) {
-                    fmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-                    try {
-                        return fmt.parse(time).getTime();
-                    }
-                    catch( ParseException encore ) {
-                        throw new CloudException("Could not parse date: " + time);
-                    }
-                }
-            }
-        }
-        return 0L;
-    }
-
     @Override
     public String testContext() {
         APITrace.begin(this, "testContext");
@@ -331,32 +274,25 @@ public class vCloud extends AbstractCloud {
 
         return (getProviderName() + " - " + getCloudName() + (ctx == null ? "" : " [" + ctx.getAccountNumber() + "]"));
     }
-    
-    public static Date parseIsoDate(String isoDateString) {
-		SimpleDateFormat df = new SimpleDateFormat( ISO8601_PATTERN );
-        
-		//handle TimeZone info
-        
-		 if ( isoDateString.endsWith( "Z" ) ) {
-			 isoDateString = isoDateString.substring( 0, isoDateString.length() - 1) + "GMT-00:00";
-	     } 
-		 else {
-			int exclude = 6;
-	        
-	        String first = isoDateString.substring( 0, isoDateString.length() - exclude );
-	        String second = isoDateString.substring( isoDateString.length() - exclude, isoDateString.length() );
-	
-	        isoDateString = first + "GMT" + second;
-	    }
-		df.setTimeZone(TimeZone.getTimeZone("UTC"));
-        Date result = null;
-        
-        try {
-			result = df.parse( isoDateString );
-		} catch (ParseException e) {
-			logger.error("Could not parse date : " + isoDateString + " as a ISO6801 pattern : " + e.getMessage());
-			return null;
-		}
-        return result;
+
+    // Path for non-static
+    public @Nonnegative long parseTime(@Nullable String time) throws CloudException {
+        return parseIsoDate(time);
+    }
+
+    /**
+     * @param isoDateString ISO 8601 string
+     * @return unix timestamp in ms, or zero
+     * @throws CloudException
+     */
+    public static long parseIsoDate(@Nullable String isoDateString) throws CloudException {
+        if (isoDateString == null || isoDateString.trim().isEmpty()) {
+            throw new CloudException("Received empty timestamp");
+        }
+        final Calendar cal = ISO8601.parse(isoDateString);
+        if (cal == null) {
+            return 0L;
+        }
+        return cal.getTimeInMillis();
 	}
 }
